@@ -37,4 +37,16 @@ class FundNetUnitModel extends Model
         }
     }
 
+    public function getStatisticsUnitValue($start=null, $end=null)
+    {
+        $handle = $this->select('max(unit_value) as max,min(unit_value) as min,avg(unit_value) as avg');
+        if ($start) {
+            $handle->where('date>=?', $start);
+        }
+        if ($end) {
+            $handle->where('date<=?', $end);
+        }
+        return $handle->getAll()[0];
+    }
+
 }

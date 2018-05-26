@@ -5,7 +5,7 @@ class HandleControl extends Control
 
     public function setNetUnit()
     {
-        $fund_infos = Instance::get('fund_info')->getAll();
+        $fund_infos = Instance::get('FundInfo')->getAll();
 
         foreach($fund_infos as $fund_info) {
             $method = "set".ucfirst($fund_info['company'])."NetUnit";

@@ -8,7 +8,7 @@
  * @version ver 1.0
  */
 
-class FundInfo extends Model
+class FundInfoModel extends Model
 {
     /**
      * 表名
@@ -16,7 +16,10 @@ class FundInfo extends Model
      */
     protected $table = 'fund_info';
 
-
+    public function checkCodeExists($code)
+    {
+        return (bool)$this->select('code')->where('code=?', [$code])->getAll();
+    }
 }
 
 ?>

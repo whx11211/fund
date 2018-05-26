@@ -136,11 +136,14 @@ class Model
      * @param string|array  $where_key，
      *      数组只持支 ‘=’ 查询条件，格式：array('id'=>1, 'group'=>2)
      *      其它查询条件如“>,<,in,between”需自己拼接字符串
-     * @param array  $execute_key 当$where_key为字符串时生效，格式：array('id'=>1, 'group'=>2)
+     * @param array  $execute_key
      * @return object 对象自身
      */
     public function where($where_key, $execute_key=null)
     {
+        if (is_scalar($execute_key)) {
+            $execute_key = [$execute_key];
+        }
         if (is_array($where_key)) {
             $tmp_array = $tmp_execute = array();
             foreach ($where_key as $key => $v) {
@@ -169,8 +172,11 @@ class Model
             $this->execute = $tmp_execute;
         }
         else {
-            $this->where = $where_key;
-            $this->execute = $execute_key;
+            $this->where = $this->where ? $this->where . ' and ' . $where_key : $where_key;
+            if ($execute_key) {
+                $this->execute = $this->execute ? array_merge($this->execute, $execute_key) : $execute_key;
+            }
+
         }
         
         return $this;

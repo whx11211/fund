@@ -214,135 +214,62 @@ class AnalysisControl extends Control
         $my_fund->show();
     }
 
-}
-
-
-class Fund
-{
-    /**
-     * 买当前金额（花了多少钱）
-     */
-    private $amount=0.00;
-
-    /**
-     * 手续费率
-     */
-    private $fees_rate=0.001;
-
-    /**
-     * 手续费
-     */
-    private $fees=0.00;
-
-    /**
-     * 买入记录
-     */
-    private $transaction_list = [];
-
-    /**
-     * 总份额
-     */
-    private $quantity=0.00;
-
-    /**
-     * FundNetUnit实例
-     */
-    private $fund_model=null;
-
-    public function __construct($fund_code, $fees_rate=null)
+    public function showDetail()
     {
-        if ($fees_rate) {
-            $this->fees_rate = $fees_rate;
+        $code = RemoteInfo::get('code');
+        $handle = Instance::get('FundInfo');
+        if ($code) {
+            $handle = $handle->where(['code'=>$code]);
         }
-        $this->fund_model = new FundNetUnitModel($fund_code);
-    }
+        $fund_infos = $handle->getAll();
+        if (!$fund_infos) {
+            Output::fail('no fund');
+        }
 
-    public function buy($amount, $date=null)
-    {
-        if (!$date) {
-            $date = date('Y-m-d');
-        }
-        $unit_value = $this->fund_model->getUnitValueByDate($date);
-        if (!$unit_value) {
-            return false;
-        }
-        $detail = [
-            'date'                  => $date,
-            'type'                  => 1,
-            'transaction_unit_value'=>  $unit_value,
-            //'before_amount'         =>  $this->amount,
-            //'before_quantity'       =>  $this->quantity
+
+        $dates = [
+            '全部'    =>  [null,null],
+            '最近一年'=>  [date('Y-m-d', strtotime('-1 year')), null],
+            '今年'    =>  [date('Y-01-01'), null],
+            '最近三月'=>  [date('Y-m-d', strtotime('-3 months')), null],
+            '最近一月'=>  [date('Y-m-d', strtotime('-1 months')), null],
+            '当月'    =>  [date('Y-m-01'), null],
         ];
-        $this->amount += $detail['amount'] = $amount;
-        $this->fees += $detail['cost_free'] = sprintf('%.2f', $amount * $this->fees_rate);
-        $this->quantity += $detail['quantity'] = sprintf('%.2f',  ($amount - $detail['cost_free']) / $detail['transaction_unit_value']);
 
-        //$detail['after_amount'] = $this->amount;
-        //$detail['after_quantity'] = $this->quantity;
+        foreach($fund_infos as $fund_info) {
+            $fund = new FundNetUnitModel($fund_info['code']);
+            $last_data = $fund->order('date desc')->limit('1')->getAll()[0] ?? '';
 
-        $this->transaction_list[] = $detail;
-
-        return true;
-    }
-
-    public function show($date='')
-    {
-        $unit_values = 0;
-        if ($date) {
-            $i = 0;
-            while(!$unit_values=$this->fund_model->getUnitValueByDate($date) && $i++<10) {
-                $date = date('Y-m-d', strtotime('-1 day', strtotime($date)));
-            }
-        }
-        else {
-            $unit_values = $this->fund_model->select('unit_value')->order('date desc')->limit(1)->getAll()[0]['unit_value'];
-        }
-
-        $now_amount = sprintf('%.2f',$this->quantity * $unit_values);
-        $return = $now_amount-$this->amount;
-        $return_rate = sprintf('%.2f',100*($now_amount-$this->amount)/$this->amount).'%';
-
-        echo <<< EOT
-<h2>账户总览</h2>
-<p>买入总金额：{$this->amount}</p>
-<p>手续费总计：{$this->fees}</p>
-<p>买入总份额：{$this->quantity}</p>
-<p>当前总金额：{$now_amount}</p>
-<p>收益：{$return}</p>
-<p>收益率：{$return_rate}</p>
-<hr/>
-EOT;
-        if ($this->transaction_list) {
             echo <<< EOT
-<h2>交易详细</h2>
+<h2>{$fund_info['name']}[{$fund_info['code']}]</h2>
+<h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
 <table border="1">
   <tr>
-    <td>日期</td>
-    <td>交易类型</td>
-    <td>交易金额</td>
-    <td>交易手续费</td>
-    <td>交易净值</td>
-    <td>交易份额</td>
+    <td>时间范围</td>
+    <td>最大净值</td>
+    <td>最小</td>
+    <td>平均净值</td>
  </tr>
 EOT;
 
-			$transaction_list = array_column($this->transaction_list, null, 'date');
-			ksort($transaction_list);
-            foreach ($transaction_list as $v) {
-                $transaction_type = $v['type'] == 1 ? '买入' : '卖出';
+
+            foreach ($dates as $date => $v) {
+                $data = $fund->getStatisticsUnitValue($v[0], $v[1]);
                 echo <<< EOT
 <tr>
-<td>{$v['date']}</td>
-<td>{$transaction_type}</td>
-<td>{$v['amount']}</td>
-<td>{$v['cost_free']}</td>
-<td>{$v['transaction_unit_value']}</td>
-<td>{$v['quantity']}</td>
+<td>{$date}</td>
+<td>{$data['max']}</td>
+<td>{$data['min']}</td>
+<td>{$data['avg']}</td>
 </tr>
 EOT;
             }
+
             echo '</table>';
         }
 
     }
+
 }
+
+
