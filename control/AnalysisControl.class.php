@@ -163,6 +163,29 @@ class AnalysisControl extends Control
             $fund_code = $fund_info['code'];
             $amount = 100;
 
+            echo <<< EOT
+<h2>{$fund_info['name']}[{$fund_info['code']}]</h2>
+<table border="1">
+  <tr>
+    <td rowspan="2">日期</td>
+    <td rowspan="2">前日净值</td> 
+    <td rowspan="2">曲线评估</td> 
+    <td colspan="9">半年信息</td>
+
+  </tr>
+  <tr>
+    <td>最大净值</td>
+    <td>最小</td>
+    <td>平均净值</td>
+    <td>净值变化</td>
+    <td>上涨率</td>
+    <td>上涨天数</td>
+    <td>上涨合计</td>
+    <td>下降天数</td>
+    <td>下降合计</td>
+ </tr>
+EOT;
+
             $fund_model = new FundNetUnitModel($fund_code);
 
             $fund = new Fund($fund_code);
@@ -179,20 +202,41 @@ class AnalysisControl extends Control
                 if (!$yesterday_unit || !$infos) {
                     continue;
                 }
-                if ($infos['rising_rate']>65 && $infos['change_total']>0) {
+                $type = '';
+                if ($infos['rising_rate']>60 && $infos['change_total']>0) {
                     //上涨曲线
+                    $type = '上涨曲线';
                 }
                 else if ($infos['rising_rate']<40 && $infos['change_total']<0) {
+                    //下降曲线
+                    $type = '下降曲线';
                 }
                 else {
                     //震荡曲线
+                    $type = '震荡曲线';
                     if ($yesterday_unit < $infos['avg']) {
                         $fund->buy($amount, $date);
                     }
                 }
+                echo <<< EOT
+<tr>
+<td>{$date}</td>
+<td>{$yesterday_unit}</td>
+<td>{$type}</td>
+<td>{$infos['max']}</td>
+<td>{$infos['min']}</td>
+<td>{$infos['avg']}</td>
+<td>{$infos['change_total']}</td>
+<td>{$infos['rising_rate']}</td>
+<td>{$infos['rising_days']}</td>
+<td>{$infos['rising_total']}</td>
+<td>{$infos['falling_days']}</td>
+<td>{$infos['falling_total']}</td>
+</tr>
+EOT;
             }
-            echo "<h2>{$fund_info['name']}[{$fund_info['code']}]</h2>";
-            $fund->show($end_time, false);
+            echo "</table>";
+            break;
         }
     }
 
