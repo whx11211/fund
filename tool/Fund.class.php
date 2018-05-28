@@ -58,7 +58,7 @@ class Fund
         ];
         $this->amount += $detail['amount'] = $amount;
         $this->fees += $detail['cost_free'] = sprintf('%.2f', $amount * $this->fees_rate);
-        $this->quantity += $detail['quantity'] = sprintf('%.2f',  ($amount - $detail['cost_free']) / $detail['transaction_unit_value']);
+        $this->quantity += $detail['quantity'] = $detail['transaction_unit_value'] ? sprintf('%.2f',  ($amount - $detail['cost_free']) / $detail['transaction_unit_value']) : 0;
 
         //$detail['after_amount'] = $this->amount;
         //$detail['after_quantity'] = $this->quantity;
@@ -68,12 +68,12 @@ class Fund
         return true;
     }
 
-    public function show($date='')
+    public function show($date='', $detail=true)
     {
         $unit_values = 0;
         if ($date) {
             $i = 0;
-            while(!$unit_values=$this->fund_model->getUnitValueByDate($date) && $i++<10) {
+            while(!($unit_values=$this->fund_model->getUnitValueByDate($date)) && $i++<10) {
                 $date = date('Y-m-d', strtotime('-1 day', strtotime($date)));
             }
         }
@@ -82,11 +82,12 @@ class Fund
         }
 
         $now_amount = sprintf('%.2f',$this->quantity * $unit_values);
-        $return = $now_amount-$this->amount;
-        $return_rate = sprintf('%.2f',100*($now_amount-$this->amount)/$this->amount).'%';
+        $return = sprintf('%.2f',$now_amount-$this->amount);
+        $return_rate = $this->amount ? sprintf('%.2f',100*($now_amount-$this->amount)/$this->amount).'%' : 0;
 
         echo <<< EOT
-<h2>账户总览</h2>
+<h2>账户总览$unit_values</h2>
+<p>日期：{$date}</p>
 <p>买入总金额：{$this->amount}</p>
 <p>手续费总计：{$this->fees}</p>
 <p>买入总份额：{$this->quantity}</p>
@@ -95,7 +96,7 @@ class Fund
 <p>收益率：{$return_rate}</p>
 <hr/>
 EOT;
-        if ($this->transaction_list) {
+        if ($detail && $this->transaction_list) {
             echo <<< EOT
 <h2>交易详细</h2>
 <table border="1">
@@ -127,5 +128,22 @@ EOT;
             echo '</table>';
         }
 
+    }
+
+    public function getReturnRate($date=null)
+    {
+        $unit_values = 0;
+        if ($date) {
+            $i = 0;
+            while(!$unit_values=$this->fund_model->getUnitValueByDate($date) && $i++<10) {
+                $date = date('Y-m-d', strtotime('-1 day', strtotime($date)));
+            }
+        }
+        else {
+            $unit_values = $this->fund_model->select('unit_value')->order('date desc')->limit(1)->getAll()[0]['unit_value'];
+        }
+
+        $now_amount = sprintf('%.2f',$this->quantity * $unit_values);
+        return $this->amount ? sprintf('%.2f',100*($now_amount-$this->amount)/$this->amount).'%' : 0;
     }
 }

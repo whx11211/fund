@@ -39,14 +39,19 @@ class FundNetUnitModel extends Model
 
     public function getStatisticsUnitValue($start=null, $end=null)
     {
-        $handle = $this->select('max(unit_value) as max,min(unit_value) as min,avg(unit_value) as avg');
+        $handle = $this->select('max(unit_value) as max,min(unit_value) as min,avg(unit_value) as avg,sum(if(unit_change>0,1,0)) as rising_days,sum(if(unit_change<0,1,0)) as falling_days,sum(if(unit_change>0,unit_change,0)) as rising_total,sum(if(unit_change<0,unit_change,0)) as falling_total,sum(unit_change) as change_total');
         if ($start) {
             $handle->where('date>=?', $start);
         }
         if ($end) {
             $handle->where('date<=?', $end);
         }
-        return $handle->getAll()[0];
+        $info = $handle->getAll()[0];
+        $info['rising_rate'] = '';
+        if ($total_days = $info['rising_days']+$info['falling_days']) {
+            $info['rising_rate'] = sprintf('%.2f', 100*$info['rising_days']/$total_days);
+        }
+        return $info;
     }
 
 }
