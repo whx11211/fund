@@ -28,15 +28,21 @@ class Fund
     private $quantity=0.00;
 
     /**
+     *
+     */
+    private $fund_info = null;
+
+    /**
      * FundNetUnit实例
      */
     private $fund_model=null;
 
-    public function __construct($fund_code, $fees_rate=null)
+    public function __construct($fund_code)
     {
-        if ($fees_rate) {
-            $this->fees_rate = $fees_rate;
-        }
+        $this->fund_info = Instance::get('FundInfo')->where(['code'=>$fund_code])->getAll()[0];
+
+        $this->fees_rate = $this->fund_info['free_rate'];
+
         $this->fund_model = new FundNetUnitModel($fund_code);
     }
 
@@ -78,7 +84,9 @@ class Fund
             }
         }
         else {
-            $unit_values = $this->fund_model->select('unit_value')->order('date desc')->limit(1)->getAll()[0]['unit_value'];
+            $res = $this->fund_model->select('date,unit_value')->order('date desc')->limit(1)->getAll()[0];
+            $unit_values = $res['unit_value'];
+            $date = $res['date'];
         }
 
         $now_amount = sprintf('%.2f',$this->quantity * $unit_values);
@@ -86,19 +94,21 @@ class Fund
         $return_rate = $this->amount ? sprintf('%.2f',100*($now_amount-$this->amount)/$this->amount).'%' : 0;
 
         echo <<< EOT
-<h2>账户总览$unit_values</h2>
+<h2>{$this->fund_info['name']}</h2>
+<h3>账户总览</h3>
 <p>日期：{$date}</p>
 <p>买入总金额：{$this->amount}</p>
 <p>手续费总计：{$this->fees}</p>
 <p>买入总份额：{$this->quantity}</p>
+<p>当前净值：{$unit_values}</p>
 <p>当前总金额：{$now_amount}</p>
 <p>收益：{$return}</p>
 <p>收益率：{$return_rate}</p>
-<hr/>
+
 EOT;
         if ($detail && $this->transaction_list) {
             echo <<< EOT
-<h2>交易详细</h2>
+<h3>交易详细</h3>
 <table border="1">
   <tr>
     <td>日期</td>
@@ -125,7 +135,7 @@ EOT;
 </tr>
 EOT;
             }
-            echo '</table>';
+            echo '</table><hr/>';
         }
 
     }

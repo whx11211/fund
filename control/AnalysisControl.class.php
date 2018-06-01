@@ -152,39 +152,21 @@ class AnalysisControl extends Control
 
     public function test()
     {
+        $code = RemoteInfo::get('code');
         $handle = Instance::get('FundInfo');
+        if ($code) {
+            $handle = $handle->where(['code'=>$code]);
+        }
         $fund_infos = $handle->getAll();
         if (!$fund_infos) {
             Output::fail('no fund');
         }
-        $start_time = '2017-06-01';
-        $end_time = '2018-01-01';
+        $start_time = date('Y-m-d');
+        $end_time = date('Y-m-d');
+
         foreach($fund_infos as $fund_info) {
             $fund_code = $fund_info['code'];
             $amount = 100;
-
-            echo <<< EOT
-<h2>{$fund_info['name']}[{$fund_info['code']}]</h2>
-<table border="1">
-  <tr>
-    <td rowspan="2">日期</td>
-    <td rowspan="2">前日净值</td> 
-    <td rowspan="2">曲线评估</td> 
-    <td colspan="9">半年信息</td>
-
-  </tr>
-  <tr>
-    <td>最大净值</td>
-    <td>最小</td>
-    <td>平均净值</td>
-    <td>净值变化</td>
-    <td>上涨率</td>
-    <td>上涨天数</td>
-    <td>上涨合计</td>
-    <td>下降天数</td>
-    <td>下降合计</td>
- </tr>
-EOT;
 
             $fund_model = new FundNetUnitModel($fund_code);
 
@@ -197,47 +179,282 @@ EOT;
                 $sdate = date('Y-m-d', strtotime('-6 months', $i));
                 $infos = $fund_model->getStatisticsUnitValue($sdate, $yesterday);
 
-                $yesterday_unit = $fund_model->select('unit_value')->where('date=?', $yesterday)->getALL()[0]['unit_value'] ?? 0;
+                $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-                if (!$yesterday_unit || !$infos) {
+                $yesterday_info = $before_days[$yesterday] ?? null;
+                unset($before_days[$yesterday]);
+
+                $before_days = array_values($before_days);
+
+                if (!$yesterday_info || !$infos) {
                     continue;
                 }
-                $type = '';
-                if ($infos['rising_rate']>60 && $infos['change_total']>0) {
-                    //上涨曲线
-                    $type = '上涨曲线';
-                }
-                else if ($infos['rising_rate']<40 && $infos['change_total']<0) {
-                    //下降曲线
-                    $type = '下降曲线';
-                }
-                else {
-                    //震荡曲线
-                    $type = '震荡曲线';
-                    if ($yesterday_unit < $infos['avg']) {
-                        $fund->buy($amount, $date);
+
+                $is_buy = false;
+                $before_trend = 0;
+                if ($yesterday_info['unit_value']<$infos['avg']) {
+                    switch ($yesterday_info['trend']) {
+                        case -1://下降
+                            $down_count = 0;
+                            foreach ($before_days as $v) {
+                                switch ($v['trend']) {
+                                    case -1://下降
+                                        $down_count++;
+                                        break;
+                                    case 0://震荡
+                                        break;
+                                    case 1://上涨
+                                        break 3;
+                                }
+                            }
+                            if ($down_count >= 4) {
+                                $is_buy = true;
+                            }
+                            break;
+                        case 0://震荡
+                            foreach ($before_days as $v) {
+                                switch ($v['trend']) {
+                                    case -1://下降
+                                        $is_buy = true;
+                                        break 3;
+                                    case 0://震荡
+                                        break;
+                                    case 1://上涨
+                                        break 3;
+                                }
+                            }
+                            $is_buy = true;
+                            break;
+                        case 1://上涨
+                            foreach ($before_days as $v) {
+                                switch ($v['trend']) {
+                                    case -1://下降
+                                        $is_buy = true;
+                                        break 3;
+                                    case 0://震荡
+                                        break;
+                                    case 1://上涨
+                                        break 3;
+                                }
+                            }
+                            break;
                     }
                 }
-                echo <<< EOT
-<tr>
-<td>{$date}</td>
-<td>{$yesterday_unit}</td>
-<td>{$type}</td>
-<td>{$infos['max']}</td>
-<td>{$infos['min']}</td>
-<td>{$infos['avg']}</td>
-<td>{$infos['change_total']}</td>
-<td>{$infos['rising_rate']}</td>
-<td>{$infos['rising_days']}</td>
-<td>{$infos['rising_total']}</td>
-<td>{$infos['falling_days']}</td>
-<td>{$infos['falling_total']}</td>
-</tr>
-EOT;
+                if ($is_buy) {
+                    $fund->buy($amount, $date);
+                }
             }
-            echo "</table>";
-            break;
+            $fund->show($end_time);
         }
+    }
+
+    public function suggest()
+    {
+        $code = RemoteInfo::get('code');
+        $handle = Instance::get('FundInfo');
+        if ($code) {
+            $handle = $handle->where(['code'=>$code]);
+        }
+        $fund_infos = $handle->getAll();
+        if (!$fund_infos) {
+            Output::fail('no fund');
+        }
+        $date = date('Y-m-d');
+
+        foreach($fund_infos as $fund_info) {
+            $fund_code = $fund_info['code'];
+
+            echo "<h3>{$fund_info['name']}[{$fund_info['code']}]</h3>";
+
+            $fund_model = new FundNetUnitModel($fund_code);
+
+            $fund = new Fund($fund_code);
+
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+            $sdate = date('Y-m-d', strtotime('-6 months'));
+            $infos = $fund_model->getStatisticsUnitValue($sdate, $yesterday);
+
+            $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
+
+            $yesterday_info = $before_days[$yesterday] ?? null;
+            unset($before_days[$yesterday]);
+
+            $before_days = array_values($before_days);
+
+            if (!$yesterday_info || !$infos) {
+                continue;
+            }
+
+            $is_buy = false;
+            $before_trend = 0;
+            if ($yesterday_info['unit_value']<$infos['avg']) {
+                switch ($yesterday_info['trend']) {
+                    case -1://下降
+                        $down_count = 0;
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $down_count++;
+                                    break;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    $down_count--;
+                                    break;
+                            }
+                        }
+                        if ($down_count >= 3) {
+                            $is_buy = true;
+                        }
+                        break;
+                    case 0://震荡
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $is_buy = true;
+                                    break 3;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    break 3;
+                            }
+                        }
+                        $is_buy = true;
+                        break;
+                    case 1://上涨
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $is_buy = true;
+                                    break 3;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    break 3;
+                            }
+                        }
+                        break;
+                }
+            }
+            if ($is_buy) {
+                echo "<p>建议买入</p>";
+            }
+            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']>0.1) {
+                echo "<p>已较半年平均上涨10%，建议卖出</p>";
+            }
+            else {
+                echo "<p>无</p>";
+            }
+            echo '<hr/>';
+
+        }
+    }
+
+    public function push()
+    {
+        $handle = Instance::get('FundInfo');
+
+        $fund_infos = $handle->getAll();
+        if (!$fund_infos) {
+            Output::fail('no fund');
+        }
+        $date = date('Y-m-d');
+
+        $suggestions = '';
+
+        foreach($fund_infos as $fund_info) {
+            $fund_code = $fund_info['code'];
+
+            $fund_name = "{$fund_info['name']}[{$fund_info['code']}]";
+
+            $fund_model = new FundNetUnitModel($fund_code);
+
+            $fund = new Fund($fund_code);
+
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+            $sdate = date('Y-m-d', strtotime('-6 months'));
+            $infos = $fund_model->getStatisticsUnitValue($sdate, $yesterday);
+
+            $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
+
+            $yesterday_info = $before_days[$yesterday] ?? null;
+            unset($before_days[$yesterday]);
+
+            $before_days = array_values($before_days);
+
+            if (!$yesterday_info || !$infos) {
+                continue;
+            }
+
+            $is_buy = false;
+            $before_trend = 0;
+            if ($yesterday_info['unit_value']<$infos['avg']) {
+                switch ($yesterday_info['trend']) {
+                    case -1://下降
+                        $down_count = 0;
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $down_count++;
+                                    break;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    $down_count--;
+                                    break;
+                            }
+                        }
+                        if ($down_count >= 3) {
+                            $is_buy = true;
+                        }
+                        break;
+                    case 0://震荡
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $is_buy = true;
+                                    break 3;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    break 3;
+                            }
+                        }
+                        $is_buy = true;
+                        break;
+                    case 1://上涨
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $is_buy = true;
+                                    break 3;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    break 3;
+                            }
+                        }
+                        break;
+                }
+            }
+            $suggestion = '';
+            if ($is_buy) {
+                $suggestion =  "建议买入";
+            }
+            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']>0.1) {
+                $suggestion = "已较半年平均上涨10%，建议卖出";
+            }
+
+            if ($suggestion) {
+                $suggestions .= "\r\n基金名称：$fund_name\r\n建议：$suggestion\r\n";
+            }
+        }
+
+        $wx = new WeXinService;
+
+        $wx->sedFundMessage($suggestions, $date);
+
+
     }
 
     public function showDetail()
@@ -266,12 +483,90 @@ EOT;
         ];
 
         foreach($fund_infos as $fund_info) {
-            $fund = new FundNetUnitModel($fund_info['code']);
+            $fund_model = $fund = new FundNetUnitModel($fund_info['code']);
             $last_data = $fund->order('date desc')->limit('1')->getAll()[0] ?? '';
+
+            $yesterday = date('Y-m-d', strtotime('-1 day'));
+            $sdate = date('Y-m-d', strtotime('-6 months'));
+            $infos = $fund_model->getStatisticsUnitValue($sdate, $yesterday);
+
+            $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
+
+            $yesterday_info = $before_days[$yesterday] ?? null;
+            unset($before_days[$yesterday]);
+
+            $before_days = array_values($before_days);
+
+            if (!$yesterday_info || !$infos) {
+                continue;
+            }
+
+            $is_buy = false;
+            $before_trend = 0;
+            if ($yesterday_info['unit_value']<$infos['avg']) {
+                switch ($yesterday_info['trend']) {
+                    case -1://下降
+                        $down_count = 0;
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $down_count++;
+                                    break;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    $down_count--;
+                                    break;
+                            }
+                        }
+                        if ($down_count >= 3) {
+                            $is_buy = true;
+                        }
+                        break;
+                    case 0://震荡
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $is_buy = true;
+                                    break 3;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    break 3;
+                            }
+                        }
+                        $is_buy = true;
+                        break;
+                    case 1://上涨
+                        foreach ($before_days as $v) {
+                            switch ($v['trend']) {
+                                case -1://下降
+                                    $is_buy = true;
+                                    break 3;
+                                case 0://震荡
+                                    break;
+                                case 1://上涨
+                                    break 3;
+                            }
+                        }
+                        break;
+                }
+            }
+            $suggest = '';
+            if ($is_buy) {
+                $suggest =  "建议买入";
+            }
+            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']>0.1) {
+                $suggest =  "已较半年平均上涨10%，建议卖出";
+            }
+            else {
+                $suggest =  "无";
+            }
 
             echo <<< EOT
 <h2>{$fund_info['name']}[{$fund_info['code']}]</h2>
 <h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
+<p>建议：$suggest</p>
 <table border="1">
   <tr>
     <td>时间范围</td>
@@ -306,7 +601,7 @@ EOT;
 EOT;
             }
 
-            echo '</table>';
+            echo '</table><hr/>';
         }
 
     }

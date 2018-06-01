@@ -142,7 +142,7 @@ class RemoteInfo
             self::$_ip = getenv('HTTP_FORWARDED');
         }
         else {
-            self::$_ip = $_SERVER['REMOTE_ADDR'];
+            self::$_ip = $_SERVER['REMOTE_ADDR'] ?? '';
         }
     
         return self::$_ip;

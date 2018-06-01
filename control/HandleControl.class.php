@@ -24,9 +24,10 @@ class HandleControl extends Control
         $url = 'http://www.thfund.com.cn/thfund/netvalue/'.$code;
 
         $FundNetUnitInstance = new FundNetUnitModel($code);
-        $last_list = $FundNetUnitInstance->select('*')->order('date desc')->limit(1)->getAll()[0] ?? [];
-        $last_date = $last_list['date'] ?? '';
-        $last_unit_value = $last_list['unit_value'] ?? 0;
+        $last_list = $FundNetUnitInstance->select('*')->order('date desc')->limit(6)->getAll();
+        $last_date = $last_list[0]['date'] ?? '';
+        $last_unit_value = $last_list[0]['unit_value'] ?? 0;
+        $before_days = array_reverse(array_column($last_list, 'unit_value'));
 
         if ($last_date >= date('Y-m-d', strtotime('-1 days'))) {
             return true;
@@ -37,15 +38,36 @@ class HandleControl extends Control
 
         $datas = [];
 
-        foreach ($res as $v) {
-            $date = date('Y-m-d', substr($v[0], 0, -3)-1);
+        foreach ($res as $val) {
+            $date = date('Y-m-d', substr($val[0], 0, -3)-1);
+            $v = $val[1];
             if ($date>$last_date) {
-                $datas[] = [
-                    'date'          =>  $date,
-                    'unit_value'    =>  $v[1],
-                    'unit_change'   =>  $last_unit_value ? sprintf('%4f', $v[1]-$last_unit_value) : 0
+                $tmp = [
+                    'date' => $date,
+                    'unit_value' => $v,
+                    'unit_change' => $last_unit_value ? sprintf('%4f', $v - $last_unit_value) : 0,
+                    'trend' => 0
                 ];
-                $last_unit_value = $v[1];
+
+                $count = count($before_days);
+                if ($count==6) {
+                    $before_days_tmp = $before_days;
+                    sort($before_days_tmp);
+                    if ($v <= $before_days_tmp[1]) {
+                        $tmp['trend'] = -1;
+                    }
+                    else if ($v >= $before_days_tmp[4]) {
+                        $tmp['trend'] = 1;
+                    }
+                }
+
+                $datas[] = $tmp;
+
+                $last_unit_value = $v;
+                array_push($before_days, $v);
+                if ($count+1>6) {
+                    array_shift($before_days);
+                }
             }
         }
 
@@ -64,9 +86,10 @@ class HandleControl extends Control
         $url = 'https://e.gtfund.com/Etrade/Jijin/navCombo/fundCode/%s/start/%s/end/%s';
 
         $FundNetUnitInstance = new FundNetUnitModel($code);
-        $last_list = $FundNetUnitInstance->select('*')->order('date desc')->limit(1)->getAll()[0] ?? [];
-        $last_date = $last_list['date'] ?? '';
-        $last_unit_value = $last_list['unit_value'] ?? 0;
+        $last_list = $FundNetUnitInstance->select('*')->order('date desc')->limit(6)->getAll();
+        $last_date = $last_list[0]['date'] ?? '';
+        $last_unit_value = $last_list[0]['unit_value'] ?? 0;
+        $before_days = array_reverse(array_column($last_list, 'unit_value'));
 
         $start = $end = date('Y-m-d', strtotime('-1 day'));
         if (!$last_date) {
@@ -94,12 +117,33 @@ class HandleControl extends Control
             foreach ($res['data']['s1']['data'] as $k => $v) {
                 $date = $res['data']['x'][$k];
                 if ($date > $last_date) {
-                    $datas[] = [
+                    $tmp = [
                         'date' => $date,
                         'unit_value' => $v,
-                        'unit_change' => $last_unit_value ? sprintf('%4f', $v - $last_unit_value) : 0
+                        'unit_change' => $last_unit_value ? sprintf('%4f', $v - $last_unit_value) : 0,
+                        'trend' => 0
                     ];
+
+                    $count = count($before_days);
+                    if ($count==6) {
+                        $before_days_tmp = $before_days;
+                        sort($before_days_tmp);
+                        if ($v <= $before_days_tmp[1]) {
+                            $tmp['trend'] = -1;
+                        }
+                        else if ($v >= $before_days_tmp[4]) {
+                            $tmp['trend'] = 1;
+                        }
+                    }
+
+                    $datas[] = $tmp;
+
                     $last_unit_value = $v;
+                    array_push($before_days, $v);
+                    if ($count+1>6) {
+                        array_shift($before_days);
+                    }
+
                 }
             }
         }
