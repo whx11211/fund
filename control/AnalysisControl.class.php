@@ -450,6 +450,10 @@ class AnalysisControl extends Control
             }
         }
 
+        if (!$suggestions) {
+            $suggestions = "\r\n建议：无\r\n";
+        }
+
         $wx = new WeXinService;
 
         $wx->sedFundMessage($suggestions, $date);
