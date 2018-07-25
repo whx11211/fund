@@ -48,6 +48,7 @@ class LogFile
             mkdir($dir, 0777, 1);
         }
         $path = $dir . '/' . $filename . '_' . date('Y-m-d') . '.' . self::$log_ext;
+        /*
         if (is_file($path)) {
             //清除filesize的缓存
             clearstatcache();
@@ -59,6 +60,7 @@ class LogFile
                 rename($path, $bak);
             }
         }
+        */
         
         if (!is_file($path)) {
             //如果不存在，尝试创建文件

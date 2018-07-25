@@ -11,6 +11,7 @@ class AnalysisControl extends Control
         $fund_code = '000961';
         $buy_record = [
             '2018-03-02'    =>  1000,
+            '2018-05-31'    =>  1000,
         ];
 
         $timing_buy_conf = [
@@ -181,8 +182,7 @@ class AnalysisControl extends Control
 
                 $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-                $yesterday_info = $before_days[$yesterday] ?? null;
-                unset($before_days[$yesterday]);
+                $yesterday_info = $yesterday_info = array_pop($before_days);
 
                 $before_days = array_values($before_days);
 
@@ -248,108 +248,6 @@ class AnalysisControl extends Control
         }
     }
 
-    public function suggest()
-    {
-        $code = RemoteInfo::get('code');
-        $handle = Instance::get('FundInfo');
-        if ($code) {
-            $handle = $handle->where(['code'=>$code]);
-        }
-        $fund_infos = $handle->getAll();
-        if (!$fund_infos) {
-            Output::fail('no fund');
-        }
-        $date = date('Y-m-d');
-
-        foreach($fund_infos as $fund_info) {
-            $fund_code = $fund_info['code'];
-
-            echo "<h3>{$fund_info['name']}[{$fund_info['code']}]</h3>";
-
-            $fund_model = new FundNetUnitModel($fund_code);
-
-            $fund = new Fund($fund_code);
-
-            $yesterday = date('Y-m-d', strtotime('-1 day'));
-            $sdate = date('Y-m-d', strtotime('-6 months'));
-            $infos = $fund_model->getStatisticsUnitValue($sdate, $yesterday);
-
-            $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
-
-            $yesterday_info = $before_days[$yesterday] ?? null;
-            unset($before_days[$yesterday]);
-
-            $before_days = array_values($before_days);
-
-            if (!$yesterday_info || !$infos) {
-                continue;
-            }
-
-            $is_buy = false;
-            $before_trend = 0;
-            if ($yesterday_info['unit_value']<$infos['avg']) {
-                switch ($yesterday_info['trend']) {
-                    case -1://下降
-                        $down_count = 0;
-                        foreach ($before_days as $v) {
-                            switch ($v['trend']) {
-                                case -1://下降
-                                    $down_count++;
-                                    break;
-                                case 0://震荡
-                                    break;
-                                case 1://上涨
-                                    $down_count--;
-                                    break;
-                            }
-                        }
-                        if ($down_count >= 3) {
-                            $is_buy = true;
-                        }
-                        break;
-                    case 0://震荡
-                        foreach ($before_days as $v) {
-                            switch ($v['trend']) {
-                                case -1://下降
-                                    $is_buy = true;
-                                    break 3;
-                                case 0://震荡
-                                    break;
-                                case 1://上涨
-                                    break 3;
-                            }
-                        }
-                        $is_buy = true;
-                        break;
-                    case 1://上涨
-                        foreach ($before_days as $v) {
-                            switch ($v['trend']) {
-                                case -1://下降
-                                    $is_buy = true;
-                                    break 3;
-                                case 0://震荡
-                                    break;
-                                case 1://上涨
-                                    break 3;
-                            }
-                        }
-                        break;
-                }
-            }
-            if ($is_buy) {
-                echo "<p>建议买入</p>";
-            }
-            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']>0.1) {
-                echo "<p>已较半年平均上涨10%，建议卖出</p>";
-            }
-            else {
-                echo "<p>无</p>";
-            }
-            echo '<hr/>';
-
-        }
-    }
-
     public function push()
     {
         $handle = Instance::get('FundInfo');
@@ -377,8 +275,7 @@ class AnalysisControl extends Control
 
             $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-            $yesterday_info = $before_days[$yesterday] ?? null;
-            unset($before_days[$yesterday]);
+            $yesterday_info = array_pop($before_days);
 
             $before_days = array_values($before_days);
 
@@ -476,13 +373,14 @@ class AnalysisControl extends Control
 
         $dates = [
             '全部'    =>  [null,null],
+            '最近三年'=>  [date('Y-m-d', strtotime('-3 year')), null],
             '最近一年'=>  [date('Y-m-d', strtotime('-1 year')), null],
-            '今年'    =>  [date('Y-01-01'), null],
+            //'今年'    =>  [date('Y-01-01'), null],
             '最近半年'=>  [date('Y-m-d', strtotime('-6 months')), null],
-            '最近三月'=>  [date('Y-m-d', strtotime('-3 months')), null],
+            //'最近三月'=>  [date('Y-m-d', strtotime('-3 months')), null],
             '最近一月'=>  [date('Y-m-d', strtotime('-1 months')), null],
-            '当月'    =>  [date('Y-m-01'), null],
-            '最近二周'=>  [date('Y-m-d', strtotime('-2 weeks')), null],
+            //'当月'    =>  [date('Y-m-01'), null],
+            //'最近二周'=>  [date('Y-m-d', strtotime('-2 weeks')), null],
             '最近一周'=>  [date('Y-m-d', strtotime('-1 weeks')), null],
         ];
 
@@ -496,8 +394,7 @@ class AnalysisControl extends Control
 
             $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-            $yesterday_info = $before_days[$yesterday] ?? null;
-            unset($before_days[$yesterday]);
+            $yesterday_info = $yesterday_info = array_pop($before_days);
 
             $before_days = array_values($before_days);
 
@@ -568,44 +465,63 @@ class AnalysisControl extends Control
             }
 
             echo <<< EOT
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<style>
+td {
+  padding:3px;
+  text-align: center;
+}
+</style>
+<body>
 <h2>{$fund_info['name']}[{$fund_info['code']}]</h2>
 <h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
 <p>建议：$suggest</p>
 <table border="1">
   <tr>
-    <td>时间范围</td>
-    <td>最大净值</td>
-    <td>最小</td>
+    <td rowspan="2">时间范围</td>
+    <td colspan="4">净值数据</td>
+    <td colspan="5">涨跌分析</td>
+  </tr>
+  <tr>
+    <td>最小净值</td>
     <td>平均净值</td>
+    <td>最大净值</td>
     <td>净值变化</td>
-    <td>上涨率</td>
     <td>上涨天数</td>
     <td>上涨合计</td>
     <td>下降天数</td>
     <td>下降合计</td>
+    <td>上涨率</td>
  </tr>
 EOT;
 
 
             foreach ($dates as $date => $v) {
                 $data = $fund->getStatisticsUnitValue($v[0], $v[1]);
+                $max = $last_data['unit_value'] >= $data['max'] ? 'style="color:red;"' : '';
+                $min = $last_data['unit_value'] <= $data['min'] ? 'style="color:green;"' : '';
+                $avg = $last_data['unit_value'] <= $data['avg'] ? 'style="color:green;"' : '';
                 echo <<< EOT
 <tr>
 <td>{$date}</td>
-<td>{$data['max']}</td>
-<td>{$data['min']}</td>
-<td>{$data['avg']}</td>
+<td $min>{$data['min']}</td>
+<td $avg>{$data['avg']}</td>
+<td $max>{$data['max']}</td>
 <td>{$data['change_total']}</td>
-<td>{$data['rising_rate']}</td>
 <td>{$data['rising_days']}</td>
 <td>{$data['rising_total']}</td>
 <td>{$data['falling_days']}</td>
 <td>{$data['falling_total']}</td>
+<td>{$data['rising_rate']}</td>
 </tr>
 EOT;
             }
 
             echo '</table><hr/>';
+            echo '</body>';
         }
 
     }
