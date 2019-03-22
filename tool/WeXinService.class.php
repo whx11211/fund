@@ -36,7 +36,7 @@ class WeXinService
         return false;
     }
 
-    public function sedFundMessage($sug, $date)
+    public function sedFundMessage($sug, $url=null)
     {
         $data = [
             'touser'        =>  WEIXIN_FUND_TO_USER,
@@ -46,13 +46,12 @@ class WeXinService
                 'suggestion'=>  [
                     'value'     =>  $sug,
                     'color'     =>  ''
-                ],
-                'date'      =>  [
-                    'value'     =>  $date,
-                    'color'     =>  '#173177'
-                ],
+                ]
             ]
         ];
+        if ($url) {
+            $data['url'] = $url;
+        }
         $this->sendMessage(json_encode($data));
     }
 

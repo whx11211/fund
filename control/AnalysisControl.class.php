@@ -2,6 +2,7 @@
 
 class AnalysisControl extends Control
 {
+    private $sell_conf = 20;//卖出提醒配置，净值超过半年平均的百分比
 
     /**
      *
@@ -252,7 +253,7 @@ class AnalysisControl extends Control
     {
         $handle = Instance::get('FundInfo');
 
-        $fund_infos = $handle->getAll();
+        $fund_infos = $handle->where('holding', 1)->getAll();
         if (!$fund_infos) {
             Output::fail('no fund');
         }
@@ -338,22 +339,25 @@ class AnalysisControl extends Control
             if ($is_buy) {
                 $suggestion =  "建议买入";
             }
-            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']>0.1) {
-                $suggestion = "已较半年平均上涨10%，建议卖出";
+            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']*100>$this->sell_conf) {
+                $half_change = intval(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']*100);
+                $suggestion = "已较半年平均上涨{$half_change}%，建议卖出";
             }
 
             if ($suggestion) {
-                $suggestions .= "\r\n基金名称：$fund_name\r\n建议：$suggestion\r\n";
+                $suggestions .= "基金：$fund_name\r\n建议：$suggestion\r\n\r\n";
             }
         }
 
         if (!$suggestions) {
-            $suggestions = "\r\n建议：无\r\n";
+            $suggestions = "无建议";
         }
 
         $wx = new WeXinService;
 
-        $wx->sedFundMessage($suggestions, $date);
+        $url = URL_PATH . '?c=analysis&m=detail';
+
+        $wx->sedFundMessage($suggestions, $url);
 
 
     }
@@ -361,9 +365,13 @@ class AnalysisControl extends Control
     public function showDetail()
     {
         $code = RemoteInfo::get('code');
+        $all = RemoteInfo::get('all');
         $handle = Instance::get('FundInfo');
         if ($code) {
             $handle = $handle->where(['code'=>$code]);
+        }
+        if (!$all) {
+            $handle = $handle->where(['holding'=>1]);
         }
         $fund_infos = $handle->getAll();
         if (!$fund_infos) {
@@ -384,9 +392,21 @@ class AnalysisControl extends Control
             '最近一周'=>  [date('Y-m-d', strtotime('-1 weeks')), null],
         ];
 
+        echo <<< EOT
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body style="padding: 15px;">
+EOT;
+
         foreach($fund_infos as $fund_info) {
             $fund_model = $fund = new FundNetUnitModel($fund_info['code']);
             $last_data = $fund->order('date desc')->limit('1')->getAll()[0] ?? '';
+
+            $history_position = $fund->select("round(sum(if(unit_value>{$last_data['unit_value']},1,0))/count(1)*100, 2) as rate")->getAll()[0]['rate'];
 
             $yesterday = date('Y-m-d', strtotime('-1 day'));
             $sdate = date('Y-m-d', strtotime('-6 months'));
@@ -454,56 +474,57 @@ class AnalysisControl extends Control
                 }
             }
             $suggest = '';
+            $half_year_change = 0;
             if ($is_buy) {
                 $suggest =  "建议买入";
             }
-            else if(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']>0.1) {
-                $suggest =  "已较半年平均上涨10%，建议卖出";
-            }
             else {
-                $suggest =  "无";
+                $half_year_change = round(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']*100, 2);
+                if ($half_year_change >= $this->sell_conf) {
+                    $suggest =  "建议卖出";
+                }
+                else {
+                }
             }
 
             echo <<< EOT
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8" />
-<style>
-td {
-  padding:3px;
-  text-align: center;
-}
-</style>
-<body>
-<h2>{$fund_info['name']}[{$fund_info['code']}]</h2>
-<h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
-<p>建议：$suggest</p>
-<table border="1">
+<div style="max-width: 1000px; margin: 0 auto 30px;">
+<div style="border: 1px solid #ddd;border-bottom: none;padding:5px 15px;border-radius: 5px 5px 0 0;background-color: #f7f7f9;">
+    <h3>{$fund_info['name']}[{$fund_info['code']}]</h3>
+    <h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
+    <p>成立时间：{$fund_info['founding_time']}</p>
+    <p>低于基金历史 $history_position% 的时间</p>
+    <p>已较半年平均上涨 $half_year_change% </p>
+    <p style="font-weight: bold;color:red;font-size: large;">$suggest</p>
+</div>
+<table class="table table-hover table-bordered">
+ <thead>
   <tr>
-    <td rowspan="2">时间范围</td>
-    <td colspan="4">净值数据</td>
-    <td colspan="5">涨跌分析</td>
+    <th rowspan="2">时间范围</th>
+    <th colspan="4">净值数据</th>
+    <th colspan="3">涨跌分析</th>
   </tr>
   <tr>
-    <td>最小净值</td>
-    <td>平均净值</td>
-    <td>最大净值</td>
-    <td>净值变化</td>
-    <td>上涨天数</td>
-    <td>上涨合计</td>
-    <td>下降天数</td>
-    <td>下降合计</td>
-    <td>上涨率</td>
- </tr>
+    <th>最小净值</th>
+    <th>平均净值</th>
+    <th>最大净值</th>
+    <th>净值变化</th>
+    <th>上涨天数</th>
+    <!--<th>上涨合计</th>-->
+    <th>下降天数</th>
+    <!--<th>下降合计</th>-->
+    <th>上涨率</th>
+  </tr>
+ </thead>
+ <tbody>
 EOT;
 
 
             foreach ($dates as $date => $v) {
                 $data = $fund->getStatisticsUnitValue($v[0], $v[1]);
-                $max = $last_data['unit_value'] >= $data['max'] ? 'style="color:red;"' : '';
-                $min = $last_data['unit_value'] <= $data['min'] ? 'style="color:green;"' : '';
-                $avg = $last_data['unit_value'] <= $data['avg'] ? 'style="color:green;"' : '';
+                $max = $last_data['unit_value'] >= $data['max'] ? 'style="color:red;font-weight: bold;"' : '';
+                $min = $last_data['unit_value'] <= $data['min'] ? 'style="color:green;font-weight: bold;"' : '';
+                $avg = $last_data['unit_value'] <= $data['avg'] ? 'style="color:green;font-weight: bold;"' : '';
                 echo <<< EOT
 <tr>
 <td>{$date}</td>
@@ -512,18 +533,18 @@ EOT;
 <td $max>{$data['max']}</td>
 <td>{$data['change_total']}</td>
 <td>{$data['rising_days']}</td>
-<td>{$data['rising_total']}</td>
+<!--<td>{$data['rising_total']}</td>-->
 <td>{$data['falling_days']}</td>
-<td>{$data['falling_total']}</td>
+<!--<td>{$data['falling_total']}</td>-->
 <td>{$data['rising_rate']}</td>
 </tr>
 EOT;
             }
 
-            echo '</table><hr/>';
-            echo '</body>';
+            echo '</tbody></table></div>';
         }
 
+        echo '</body>';
     }
 
 }
