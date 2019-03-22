@@ -26,7 +26,7 @@ define('LOG_PATH', ROOT . 'logs/');
 define('EXT', 'php');
 
 include ROOT . 'config/config.php';
-include COMMON_PATH . 'autoLoad.class.php';
+include COMMON_PATH . 'AutoLoad.class.php';
 include COMMON_PATH . 'function.php';
 
 // 自动加载启动

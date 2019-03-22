@@ -355,7 +355,7 @@ class AnalysisControl extends Control
 
         $wx = new WeXinService;
 
-        $url = URL_PATH . '?c=analysis&m=detail';
+        $url = URL_PATH . '?c=Analysis&m=showDetail';
 
         $wx->sedFundMessage($suggestions, $url);
 
