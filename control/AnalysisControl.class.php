@@ -397,6 +397,7 @@ class AnalysisControl extends Control
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
+<title>基金涨跌一览</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body style="padding: 15px;">
@@ -488,7 +489,7 @@ EOT;
             }
 
             echo <<< EOT
-<div style="max-width: 1000px; margin: 0 auto 30px;">
+<div style="max-width: 1000px; margin: 0 auto 30px;font-size: 1.5em;">
 <div style="border: 1px solid #ddd;border-bottom: none;padding:5px 15px;border-radius: 5px 5px 0 0;background-color: #f7f7f9;">
     <h3>{$fund_info['name']}[{$fund_info['code']}]</h3>
     <h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
@@ -502,18 +503,18 @@ EOT;
   <tr>
     <th rowspan="2">时间范围</th>
     <th colspan="4">净值数据</th>
-    <th colspan="3">涨跌分析</th>
+    <!--<th colspan="3">涨跌分析</th>-->
   </tr>
   <tr>
     <th>最小净值</th>
     <th>平均净值</th>
     <th>最大净值</th>
     <th>净值变化</th>
+    <!--
     <th>上涨天数</th>
-    <!--<th>上涨合计</th>-->
     <th>下降天数</th>
-    <!--<th>下降合计</th>-->
     <th>上涨率</th>
+    -->
   </tr>
  </thead>
  <tbody>
@@ -532,11 +533,11 @@ EOT;
 <td $avg>{$data['avg']}</td>
 <td $max>{$data['max']}</td>
 <td>{$data['change_total']}</td>
+<!--
 <td>{$data['rising_days']}</td>
-<!--<td>{$data['rising_total']}</td>-->
 <td>{$data['falling_days']}</td>
-<!--<td>{$data['falling_total']}</td>-->
 <td>{$data['rising_rate']}</td>
+-->
 </tr>
 EOT;
             }

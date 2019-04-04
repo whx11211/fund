@@ -313,65 +313,23 @@ class HandleControl extends Control
         $last_unit_value = $last_list[0]['unit_value'] ?? 0;
         $before_days = array_reverse(array_column($last_list, 'unit_value'));
 
-        $start = '';
-        if ($last_date >= date('Y-m-d', strtotime('-1 days'))) {
-            return true;
-        }
-        else if ($last_date) {
-            $start = date('Y-m-d', strtotime('+1 day', strtotime($last_date)));
-        }
+        $url = 'http://www.chinaamc.com/fund/%s/zoust_all.js';
 
-        $page = 1;
-        $total_page = 0;
+        $url = sprintf($url, $fund_info['code']);
 
-        $url = 'http://fund.chinaamc.com/product/fundLishijingzhi.do';
-        $post = array(
-            'fundcode'  =>  $code,
-            'isQuery'  =>  '',
-            'begindate'  =>  $start,
-            'enddate'  =>  '',
-            'pageIndex'  =>  1,
-        );
+        $res = file_get_contents($url);
+        @$res = json_decode($res, true);
 
-        $res_data = array();
-        while(true) {
-            $post['pageIndex'] = $page;
-            $res = curl($url, $post);
-            if (!$res) {
-                break;
-            }
-
-            $html = new DOMDocument();
-            $html->loadHTML($res);
-
-            $tables = $html->getElementsByTagName('table');
-            foreach($tables as $table) {
-                if ($table->parentNode->getAttribute('class') == 'info') {
-                    foreach($table->childNodes[1]->childNodes as $k=> $tr) {
-                        if (!isset($tr->tagName)) {
-                            continue;
-                        }
-                        if ($tr->childNodes[1]->tagName=='td') {
-                            $res_data[trim($tr->childNodes[1]->nodeValue)] = substr($tr->childNodes[5]->nodeValue, 2);
-                        }
-                    }
-                }
-                else if ($table->parentNode->getAttribute('class') == 'pages') {
-                    $total_page = trim($table->childNodes[1]->childNodes[1]->childNodes[0]->childNodes[7]->nodeValue);
-                }
-            }
-
-
-            if($page >= $total_page) {
-                break;
-            }
-            $page++;
+        $dates = [];
+        if ($res) {
+            $dates = json_decode(str_replace("'", '"', $res['ShowData']), true);
+            $units = json_decode(str_replace("'", '"', $res['JingzhiName']), true);
         }
 
-        ksort($res_data);
         $datas = [];
 
-        foreach ($res_data as $date=>$v) {
+        foreach ($dates as $k=>$date) {
+            $v = $units[$k] ?? 0;
             if ($date > $last_date) {
                 $tmp = [
                     'date' => $date,
