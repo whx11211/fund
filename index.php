@@ -5,6 +5,7 @@ include_once 'common/init.php';
 $class = RemoteInfo::get('c');
 $method = RemoteInfo::get('m');
 
+
 if ($class && class_exists($class.'Control')) {
     $class = $class.'Control';
     if (method_exists($class, $method)) {
