@@ -163,8 +163,21 @@ class AnalysisControl extends Control
         if (!$fund_infos) {
             Output::fail('no fund');
         }
-        $start_time = date('Y-m-d');
-        $end_time = date('Y-m-d');
+        $start_time = RemoteInfo::get('start') ?: date('Y-m-d', strtotime('-1 month'));
+        $end_time = RemoteInfo::get('end') ?: date('Y-m-d');
+
+        echo <<< EOT
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>基金涨跌一览</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
+<script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+<body style="padding: 15px;">
+EOT;
 
         foreach($fund_infos as $fund_info) {
             $fund_code = $fund_info['code'];
@@ -173,6 +186,7 @@ class AnalysisControl extends Control
             $fund_model = new FundNetUnitModel($fund_code);
 
             $fund = new Fund($fund_code);
+            $fund2 = new Fund($fund_code);
 
             $tm = strtotime($end_time);
             for ($i = strtotime($start_time); $i <= $tm; $i += 24 * 3600) {
@@ -244,8 +258,9 @@ class AnalysisControl extends Control
                 if ($is_buy) {
                     $fund->buy($amount, $date);
                 }
+                $fund2->buy($amount, $date);
             }
-            $fund->show($end_time);
+            $fund->showCompare($end_time, $fund2, $start_time);
         }
     }
 
@@ -370,7 +385,7 @@ class AnalysisControl extends Control
         if ($code) {
             $handle = $handle->where(['code'=>$code]);
         }
-        if (!$all) {
+        if (!$code && !$all) {
             $handle = $handle->where(['holding'=>1]);
         }
         $fund_infos = $handle->getAll();
@@ -479,14 +494,14 @@ EOT;
             if ($is_buy) {
                 $suggest =  "建议买入";
             }
-            else {
-                $half_year_change = round(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']*100, 2);
-                if ($half_year_change >= $this->sell_conf) {
-                    $suggest =  "建议卖出";
-                }
-                else {
-                }
+
+            $half_year_change = round(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']*100, 2);
+            if ($half_year_change >= $this->sell_conf) {
+                $suggest =  "建议卖出";
             }
+            else {
+            }
+
 
             echo <<< EOT
 <div style="max-width: 1000px; margin: 0 auto 30px;font-size: 1.5em;">

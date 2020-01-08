@@ -5,37 +5,37 @@ class Fund
     /**
      * 买当前金额（花了多少钱）
      */
-    private $amount=0.00;
+    public $amount=0.00;
 
     /**
      * 手续费率
      */
-    private $fees_rate=0.001;
+    public $fees_rate=0.001;
 
     /**
      * 手续费
      */
-    private $fees=0.00;
+    public $fees=0.00;
 
     /**
      * 买入记录
      */
-    private $transaction_list = [];
+    public $transaction_list = [];
 
     /**
      * 总份额
      */
-    private $quantity=0.00;
+    public $quantity=0.00;
 
     /**
      *
      */
-    private $fund_info = null;
+    public $fund_info = null;
 
     /**
      * FundNetUnit实例
      */
-    private $fund_model=null;
+    public $fund_model=null;
 
     public function __construct($fund_code)
     {
@@ -137,6 +137,130 @@ EOT;
             }
             echo '</table><hr/>';
         }
+
+    }
+
+    public function showCompare($date='', $fund2, $start_date)
+    {
+        $unit_values = 0;
+        if ($date) {
+            $i = 0;
+            while(!($unit_values=$this->fund_model->getUnitValueByDate($date)) && $i++<10) {
+                $date = date('Y-m-d', strtotime('-1 day', strtotime($date)));
+            }
+        }
+        else {
+            $res = $this->fund_model->select('date,unit_value')->order('date desc')->limit(1)->getAll()[0];
+            $unit_values = $res['unit_value'];
+            $date = $res['date'];
+        }
+
+        $now_amount = sprintf('%.2f',$this->quantity * $unit_values);
+        $return = sprintf('%.2f',$now_amount-$this->amount);
+        $return_rate = $this->amount ? sprintf('%.2f',100*($now_amount-$this->amount)/$this->amount).'%' : 0;
+        $buy_count = count($this->transaction_list);
+
+        $now_amount2 = sprintf('%.2f',$fund2->quantity * $unit_values);
+        $return2 = sprintf('%.2f',$now_amount2-$fund2->amount);
+        $return_rate2 = $fund2->amount ? sprintf('%.2f',100*($now_amount2-$fund2->amount)/$fund2->amount).'%' : 0;
+        $buy_count2 = count($fund2->transaction_list);
+
+        echo <<< EOT
+<h2>{$this->fund_info['name']}({$this->fund_info['code']})</h2>
+<div>
+<p>买入日期：{$start_date}-{$date}</p>
+<p>当前净值：{$unit_values}</p>
+</div>
+
+<table class="table table-hover table-bordered">
+    <tr>
+        <th>买入方式</th>
+        <th>买入笔数</th>
+        <th>买入总金额</th>
+        <th>手续费总计</th>
+        <th>买入总份额</th>
+        <th>当前总金额</th>
+        <th>收益</th>
+        <th>收益率</th>
+    </tr>
+
+    <tr>
+        <td><a href="#" data-toggle="modal" data-target="#detail_{$this->fund_info['code']}">算法推荐</a></td>
+        <td>{$buy_count}</td>
+        <td>{$this->amount}</td>
+        <td>{$this->fees}</td>
+        <td>{$this->quantity}</td>
+        <td>{$now_amount}</td>
+        <td>{$return}</td>
+        <td>{$return_rate}</td>
+    </tr>
+    <tr>
+        <td>定投</td>
+        <td>{$buy_count2}</td>
+        <td>{$fund2->amount}</td>
+        <td>{$fund2->fees}</td>
+        <td>{$fund2->quantity}</td>
+        <td>{$now_amount2}</td>
+        <td>{$return2}</td>
+        <td>{$return_rate2}</td>
+    </tr>
+</table>
+<hr/>
+EOT;
+
+
+        echo <<< EOT
+<div id="detail_{$this->fund_info['code']}"  class="modal fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+<div class="modal-dialog">
+    <div class="modal-content">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h4 class="modal-title" id="myModalLabel">{$this->fund_info['name']}({$this->fund_info['code']})</h4>
+        </div>
+        <div class="modal-body">
+        
+<table class="table table-hover table-bordered">
+<tr>
+<th>日期</th>
+<th>交易类型</th>
+<th>交易金额</th>
+<th>交易手续费</th>
+<th>交易净值</th>
+<th>交易份额</th>
+</tr>
+EOT;
+
+        $transaction_list = array_column($this->transaction_list, null, 'date');
+        ksort($transaction_list);
+        foreach ($transaction_list as $v) {
+            $transaction_type = $v['type'] == 1 ? '买入' : '卖出';
+            echo <<< EOT
+<tr>
+<td>{$v['date']}</td>
+<td>{$transaction_type}</td>
+<td>{$v['amount']}</td>
+<td>{$v['cost_free']}</td>
+<td>{$v['transaction_unit_value']}</td>
+<td>{$v['quantity']}</td>
+</tr>
+EOT;
+        }
+        if (!$transaction_list) {
+            echo "<tr><td colspan='6' style='text-align: center'>无</td></tr>";
+        }
+        echo <<<EOT
+</table>
+
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-default" data-dismiss="modal">关闭</button>
+        </div>
+    </div><!-- /.modal-content -->
+</div><!-- /.modal -->
+</div>
+EOT;
+
+
 
     }
 
