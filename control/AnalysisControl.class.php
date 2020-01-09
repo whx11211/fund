@@ -175,6 +175,11 @@ class AnalysisControl extends Control
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
 <script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/highcharts.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/modules/exporting.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/modules/series-label.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/modules/oldie.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts-plugins/highcharts-zh_CN.js"></script>
 </head>
 <body style="padding: 15px;">
 EOT;
@@ -257,10 +262,30 @@ EOT;
                 }
                 if ($is_buy) {
                     $fund->buy($amount, $date);
+                    $dates[] = $date;
                 }
                 $fund2->buy($amount, $date);
             }
-            $fund->showCompare($end_time, $fund2, $start_time);
+
+            $unit_data = $fund_model->select('*')->where('date between ? and ?', [$start_time, $end_time])->order('date asc')->getALL();
+
+            $data = [];
+            $date_data = [];
+            foreach ($unit_data as $v) {
+                $data[] = [
+                    'y' =>  (float)$v['unit_value'],
+                    'name' =>  $v['unit_value'],
+                    'color' =>  in_array($v['date'], $dates??[]) ? 'red' : '',
+                ];
+                $date_data[] = $v['date'];
+            }
+
+            $buy_data = [
+                'data'  =>  $data,
+                'date_data' => $date_data
+            ];
+
+            $fund->showCompare($end_time, $fund2, $start_time, $buy_data);
         }
     }
 

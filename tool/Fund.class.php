@@ -140,7 +140,7 @@ EOT;
 
     }
 
-    public function showCompare($date='', $fund2, $start_date)
+    public function showCompare($date='', $fund2, $start_date, $buy_data)
     {
         $unit_values = 0;
         if ($date) {
@@ -205,8 +205,46 @@ EOT;
         <td>{$return_rate2}</td>
     </tr>
 </table>
-<hr/>
+
 EOT;
+
+        if ($buy_data['date_data']) {
+            $buy_data = json_encode($buy_data);
+            echo <<<EOT
+<div id="#chart_{$this->fund_info['code']}" style=""></div>
+<script>
+    var data={$buy_data};
+    var chart = Highcharts.chart('#chart_{$this->fund_info['code']}', {
+        title: {
+            text: '基金走势'
+        },
+        yAxis: {
+            title: {
+                text: '净值'
+            }
+        },
+        plotOptions: {
+            series: {
+                marker: {
+                    radius: 1
+                }
+            }
+        },
+        xAxis: {
+            categories: data.date_data
+        },
+        series: [{
+            name: '{$this->fund_info['name']}',
+            data: data.data
+        }],
+        exporting: { enabled: false },//隐藏导出图片
+        credits: { enabled: false }//隐藏highcharts的站点标志
+    });
+</script>
+EOT;
+        }
+
+        echo '<hr/>';
 
 
         echo <<< EOT
