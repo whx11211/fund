@@ -274,7 +274,7 @@ EOT;
             foreach ($unit_data as $v) {
                 $data[] = [
                     'y' =>  (float)$v['unit_value'],
-                    'name' =>  $v['unit_value'],
+                    'name' =>  $v['date'],
                     'color' =>  in_array($v['date'], $dates??[]) ? 'red' : '',
                 ];
                 $date_data[] = $v['date'];
