@@ -171,7 +171,7 @@ class AnalysisControl extends Control
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>基金涨跌一览</title>
+<title>基金买入模拟</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
 <script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
 <script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
@@ -192,6 +192,7 @@ EOT;
 
             $fund = new Fund($fund_code);
             $fund2 = new Fund($fund_code);
+            $dates = [];
 
             $tm = strtotime($end_time);
             for ($i = strtotime($start_time); $i <= $tm; $i += 24 * 3600) {
@@ -224,10 +225,11 @@ EOT;
                                     case 0://震荡
                                         break;
                                     case 1://上涨
-                                        break 3;
+                                        $down_count--;
+                                        break;
                                 }
                             }
-                            if ($down_count >= 4) {
+                            if ($down_count >= 3) {
                                 $is_buy = true;
                             }
                             break;
@@ -287,6 +289,117 @@ EOT;
 
             $fund->showCompare($end_time, $fund2, $start_time, $buy_data);
         }
+    }
+
+    public function trend()
+    {
+        $codes = RemoteInfo::get('codes');
+        $handle = Instance::get('FundInfo');
+        if ($codes) {
+            $codes = explode(',', $codes);
+            $handle = $handle->where(['code' => [
+                'in' => $codes
+            ]]);
+        }
+        $fund_infos = $handle->getAll();
+        if (!$fund_infos) {
+            Output::fail('no fund');
+        }
+        $start_time = RemoteInfo::get('start') ?: date('Y-m-d', strtotime('-1 month'));
+        $end_time = RemoteInfo::get('end') ?: date('Y-m-d');
+
+        echo <<< EOT
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>基金走势图</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.staticfile.org/jquery/2.1.1/jquery.min.js"></script>
+<script src="https://cdn.staticfile.org/twitter-bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/highcharts.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/modules/exporting.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/modules/series-label.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts/modules/oldie.js"></script>
+<script src="https://code.highcharts.com.cn/highcharts-plugins/highcharts-zh_CN.js"></script>
+</head>
+<body style="padding: 15px;">
+EOT;
+
+        $date_data = [];
+        $data_all = [];
+        foreach($fund_infos as $fund_info) {
+            $fund_code = $fund_info['code'];
+            $amount = 100;
+
+            $fund_model = new FundNetUnitModel($fund_code);
+
+            $unit_data = $fund_model->select('*')->where('date between ? and ?', [$start_time, $end_time])->order('date asc')->getALL();
+
+            $data = [];
+            if (empty($date_data)) {
+                foreach ($unit_data as $v) {
+                    $date_data[] = $v['date'];
+                }
+            }
+            $first_unit = $unit_data[0]['unit_value'] ?? 1;
+            $unit_data = array_column($unit_data, null, 'date');
+            $v = [
+                'unit_value' => $first_unit,
+            ];
+            foreach ($date_data as $d) {
+                if (isset($unit_data[$d])) {
+                    $v = $unit_data[$d];
+                }
+
+                $data[] = [
+                    'y' =>  round($v['unit_value'] / $first_unit, 3),
+                    'name' =>  $d . "\t" . $v['unit_value'],
+                ];
+            }
+
+            $data_all[] = [
+                'name' =>  $fund_info['name'],
+                'data' =>  $data,
+            ];
+        }
+
+        $date_data = json_encode($date_data);
+        $data_all = json_encode($data_all);
+
+        echo <<<EOT
+<div id="#chart" style="height: 800px"></div>
+<script>
+    var chart = Highcharts.chart('#chart', {
+        title: {
+            text: '基金走势'
+        },
+        yAxis: {
+            title: {
+                text: '净值'
+            }
+        },
+        plotOptions: {
+            series: {
+                marker: {
+                    radius: 1
+                }
+            }
+        },
+        tooltip: {
+            crosshairs: [true, false],
+            pointFormat: '{series.name}: <b>{point.y}</b><br/>',
+            shared: true
+        },
+        xAxis: {
+            categories: {$date_data}
+        },
+        series: {$data_all},
+        exporting: { enabled: false },//隐藏导出图片
+        credits: { enabled: false }//隐藏highcharts的站点标志
+    });
+</script>
+EOT;
     }
 
     public function push()

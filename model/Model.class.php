@@ -163,6 +163,11 @@ class Model
                                 $tmp_execute[] = $vv[0];
                                 $tmp_execute[] = $vv[1];
                                 break;
+                            case 'in':
+                                $tmp = substr(str_repeat('?,', count($vv)), 0 ,-1);
+                                $tmp_array[] = "`$key` in ($tmp)";
+                                $tmp_execute = array_merge($tmp_execute, $vv);
+                                break;
                         }
                         break;
                     }
