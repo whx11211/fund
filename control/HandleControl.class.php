@@ -8,7 +8,7 @@ class HandleControl extends Control
         $fund_infos = Instance::get('FundInfo')->getAll();
 
         foreach($fund_infos as $fund_info) {
-            $method = "set".ucfirst($fund_info['company'])."NetUnit";
+            $method = "set" . ucfirst($fund_info['company']) . "NetUnit";
             if (method_exists($this, $method)) {
                 $this->$method($fund_info['code'], $fund_info);
             }
@@ -33,10 +33,22 @@ class HandleControl extends Control
             return true;
         }
 
-        $res = file_get_contents($url);
-        @$res = json_decode($res);
-
         $datas = [];
+
+        //坑爹的天弘，不知道什么原因请求不稳定，多试几次
+        for ($i = 1; $i<100; $i++) {
+            $res = curl($url);
+            @$res = json_decode($res);
+
+
+            if (is_array($res)) {
+                break;
+            }
+        }
+
+        if (!is_array($res)) {
+            return;
+        }
 
         foreach ($res as $val) {
             $date = date('Y-m-d', substr($val[0], 0, -3)-1);
@@ -114,7 +126,7 @@ class HandleControl extends Control
         $datas = [];
 
         if ($res['code']==0) {
-            foreach ($res['data']['s2']['data'] as $k => $v) {
+            foreach ($res['data']['s1']['data'] as $k => $v) {
                 $date = $res['data']['x'][$k];
                 if ($date > $last_date) {
                     $tmp = [
@@ -190,7 +202,7 @@ class HandleControl extends Control
                 continue;
             }
             $date = date('Y-m-d', strtotime($val[0]));
-            $v = $val[2];
+            $v = $val[3] ?: $val[2];
             if ($date>$last_date) {
                 $tmp = [
                     'date' => $date,
@@ -261,7 +273,7 @@ class HandleControl extends Control
         if ($res['code']==0) {
             foreach ($res['content']['list'] as $list) {
                 $date = date('Y-m-d', strtotime($list['fdate']));
-                $v = $list['fundnav'];
+                $v = $list['addupnav'];
                 if ($date > $last_date) {
                     $tmp = [
                         'date' => $date,
@@ -313,23 +325,24 @@ class HandleControl extends Control
         $last_unit_value = $last_list[0]['unit_value'] ?? 0;
         $before_days = array_reverse(array_column($last_list, 'unit_value'));
 
-        $url = 'http://www.chinaamc.com/fund/%s/zoust_all.js';
+        $url = 'https://m.chinaamc.com/mphone/mp/netValue/queryFundNetValueChart/%s/wgw';
 
         $url = sprintf($url, $fund_info['code']);
 
-        $res = file_get_contents($url);
+        $res = curl($url, ['startIndex'=> 1, 'endIndex' => 200000]);
+
         @$res = json_decode($res, true);
 
         $dates = [];
-        if ($res) {
-            $dates = json_decode(str_replace("'", '"', $res['ShowData']), true);
-            $units = json_decode(str_replace("'", '"', $res['JingzhiName']), true);
+        if (isset($res['code']) && $res['code'] == 1000) {
+            $dates = $res['data']['list'];
         }
 
         $datas = [];
 
-        foreach ($dates as $k=>$date) {
-            $v = $units[$k] ?? 0;
+        foreach ($dates as $val) {
+            $date = $val['publishDate'];
+            $v = $val['netValue'];
             if ($date > $last_date) {
                 $tmp = [
                     'date' => $date,
@@ -476,11 +489,11 @@ class HandleControl extends Control
         $datas = [];
 
 
-        if ($res['seriesData0']) {
-            $length = count($res['seriesData0']);
+        if ($res['seriesData1']) {
+            $length = count($res['seriesData1']);
             for ($i=0; $i<$length; $i++) {
                 $date =$res['xAxisData'][$i];
-                $v = $res['seriesData0'][$i];
+                $v = $res['seriesData1'][$i];
                 if ($date > $last_date) {
                     $tmp = [
                         'date' => $date,

@@ -203,11 +203,11 @@ EOT;
 
                 $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-                $yesterday_info = $yesterday_info = array_pop($before_days);
+                $yesterday_info = array_shift($before_days);
 
                 $before_days = array_values($before_days);
 
-                if (!$yesterday_info || !$infos) {
+                if (!$yesterday_info || $yesterday_info['date'] != $yesterday || !$infos) {
                     continue;
                 }
 
@@ -353,7 +353,7 @@ EOT;
                 }
 
                 $data[] = [
-                    'y' =>  round($v['unit_value'] / $first_unit, 3),
+                    'y' =>  round(($v['unit_value'] / $first_unit -1) * 100, 2),
                     'name' =>  $d . "\t" . $v['unit_value'],
                 ];
             }
@@ -368,7 +368,7 @@ EOT;
         $data_all = json_encode($data_all);
 
         echo <<<EOT
-<div id="#chart" style="height: 800px"></div>
+<div id="#chart" style="height: 500px;max-width:margin: auto;"></div>
 <script>
     var chart = Highcharts.chart('#chart', {
         title: {
@@ -377,7 +377,10 @@ EOT;
         yAxis: {
             title: {
                 text: '净值'
-            }
+            },
+            labels: {
+				format: '{value}%'
+			}
         },
         plotOptions: {
             series: {
@@ -387,8 +390,8 @@ EOT;
             }
         },
         tooltip: {
-            crosshairs: [true, false],
-            pointFormat: '{series.name}: <b>{point.y}</b><br/>',
+            crosshairs: [false, true],
+            pointFormat: '{series.name}: <b>{point.y}%</b><br/>',
             shared: true
         },
         xAxis: {
@@ -429,11 +432,11 @@ EOT;
 
             $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-            $yesterday_info = array_pop($before_days);
+            $yesterday_info = array_shift($before_days);
 
             $before_days = array_values($before_days);
 
-            if (!$yesterday_info || !$infos) {
+            if (!$yesterday_info || $yesterday_info['date'] != $yesterday || !$infos) {
                 continue;
             }
 
@@ -531,7 +534,6 @@ EOT;
             Output::fail('no fund');
         }
 
-
         $dates = [
             '全部'    =>  [null,null],
             '最近三年'=>  [date('Y-m-d', strtotime('-3 year')), null],
@@ -559,6 +561,10 @@ EOT;
         foreach($fund_infos as $fund_info) {
             $fund_model = $fund = new FundNetUnitModel($fund_info['code']);
             $last_data = $fund->order('date desc')->limit('1')->getAll()[0] ?? '';
+            if (empty($last_data)) {
+                echo $fund_info['name'] . "<br/>";
+                continue;
+            }
 
             $history_position = $fund->select("round(sum(if(unit_value>{$last_data['unit_value']},1,0))/count(1)*100, 2) as rate")->getAll()[0]['rate'];
 
@@ -568,12 +574,12 @@ EOT;
 
             $before_days = array_column($fund_model->select('*')->where('date<=?', $yesterday)->order('date desc')->limit('7')->getALL(), null, 'date');
 
-            $yesterday_info = $yesterday_info = array_pop($before_days);
+            $yesterday_info = array_shift($before_days);
 
             $before_days = array_values($before_days);
 
-            if (!$yesterday_info || !$infos) {
-                continue;
+            if (!$yesterday_info || $yesterday_info['date'] != $yesterday || !$infos) {
+                //continue;
             }
 
             $is_buy = false;
@@ -676,7 +682,7 @@ EOT;
 
             foreach ($dates as $date => $v) {
                 $data = $fund->getStatisticsUnitValue($v[0], $v[1]);
-                $max = $last_data['unit_value'] >= $data['max'] ? 'style="color:red;font-weight: bold;"' : '';
+                $max = $last_data['unit_value'] * 1.01 >= $data['max'] ? 'style="color:red;font-weight: bold;"' : '';
                 $min = $last_data['unit_value'] <= $data['min'] ? 'style="color:green;font-weight: bold;"' : '';
                 $avg = $last_data['unit_value'] <= $data['avg'] ? 'style="color:green;font-weight: bold;"' : '';
                 echo <<< EOT
