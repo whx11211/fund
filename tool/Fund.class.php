@@ -39,7 +39,7 @@ class Fund
 
     public function __construct($fund_code)
     {
-        $this->fund_info = Instance::get('FundInfo')->where(['code'=>$fund_code])->getAll()[0];
+        $this->fund_info = Instance::get('funds')->where(['code'=>$fund_code])->getAll()[0];
 
         $this->fees_rate = $this->fund_info['free_rate'];
 

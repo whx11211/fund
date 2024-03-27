@@ -1,2 +1,2 @@
-/usr/bin/php7.1 /var/www/my_code/fund/cli.php Handle setNetUnit
-/usr/bin/php7.1 /var/www/my_code/fund/cli.php Analysis push
+/www/server/php/74/bin/php /www/wwwroot/common/fund/cli.php  Handle setNetUnit
+/www/server/php/74/bin/php /www/wwwroot/common/fund/cli.php  Analysis push

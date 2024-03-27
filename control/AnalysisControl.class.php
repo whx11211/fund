@@ -155,7 +155,7 @@ class AnalysisControl extends Control
     public function test()
     {
         $code = RemoteInfo::get('code');
-        $handle = Instance::get('FundInfo');
+        $handle = Instance::get('funds');
         if ($code) {
             $handle = $handle->where(['code'=>$code]);
         }
@@ -294,7 +294,7 @@ EOT;
     public function trend()
     {
         $codes = RemoteInfo::get('codes');
-        $handle = Instance::get('FundInfo');
+        $handle = Instance::get('funds');
         if ($codes) {
             $codes = explode(',', $codes);
             $handle = $handle->where(['code' => [
@@ -407,7 +407,7 @@ EOT;
 
     public function push()
     {
-        $handle = Instance::get('FundInfo');
+        $handle = Instance::get('funds');
 
         $fund_infos = $handle->where('holding', 1)->getAll();
         if (!$fund_infos) {
@@ -522,7 +522,7 @@ EOT;
     {
         $code = RemoteInfo::get('code');
         $all = RemoteInfo::get('all');
-        $handle = Instance::get('FundInfo');
+        $handle = Instance::get('funds');
         if ($code) {
             $handle = $handle->where(['code'=>$code]);
         }
@@ -584,6 +584,7 @@ EOT;
 
             $is_buy = false;
             $before_trend = 0;
+            $suggest = '';
             if ($yesterday_info['unit_value']<$infos['avg']) {
                 switch ($yesterday_info['trend']) {
                     case -1://下降
@@ -602,6 +603,7 @@ EOT;
                         }
                         if ($down_count >= 3) {
                             $is_buy = true;
+                            $suggest = '持续下跌中，建议买入';
                         }
                         break;
                     case 0://震荡
@@ -609,6 +611,7 @@ EOT;
                             switch ($v['trend']) {
                                 case -1://下降
                                     $is_buy = true;
+                                    $suggest = '震荡下跌中，建议买入';
                                     break 3;
                                 case 0://震荡
                                     break;
@@ -617,12 +620,14 @@ EOT;
                             }
                         }
                         $is_buy = true;
+                        $suggest = '持续震荡中，建议买入';
                         break;
                     case 1://上涨
                         foreach ($before_days as $v) {
                             switch ($v['trend']) {
                                 case -1://下降
                                     $is_buy = true;
+                                    $suggest = '出现回调，建议买入';
                                     break 3;
                                 case 0://震荡
                                     break;
@@ -633,15 +638,10 @@ EOT;
                         break;
                 }
             }
-            $suggest = '';
-            $half_year_change = 0;
-            if ($is_buy) {
-                $suggest =  "建议买入";
-            }
 
             $half_year_change = round(($yesterday_info['unit_value']-$infos['avg'])/$infos['avg']*100, 2);
             if ($half_year_change >= $this->sell_conf) {
-                $suggest =  "建议卖出";
+                $suggest =  "已较半年均值上涨{$half_year_change}%,建议卖出";
             }
             else {
             }
@@ -653,6 +653,7 @@ EOT;
     <h3>{$fund_info['name']}[{$fund_info['code']}]</h3>
     <h4>{$last_data['date']}：{$last_data['unit_value']}</h4>
     <p>成立时间：{$fund_info['founding_time']}</p>
+    <p>基金规模：{$fund_info['scale']}</p>
     <p>低于基金历史 $history_position% 的时间</p>
     <p>已较半年平均上涨 $half_year_change% </p>
     <p style="font-weight: bold;color:red;font-size: large;">$suggest</p>
@@ -708,5 +709,6 @@ EOT;
     }
 
 }
+
 
 

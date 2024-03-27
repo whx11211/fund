@@ -122,7 +122,7 @@ class Model
     public function select($select_key)
     {
         if (is_array($select_key)) {
-            $this->select = implode($select_key, ',');
+            $this->select = implode(',', $select_key);
         }
         else {
             $this->select = $select_key;
@@ -173,7 +173,7 @@ class Model
                     }
                 }
             }
-            $this->where = implode($tmp_array, ' AND ');
+            $this->where = implode(' AND ', $tmp_array);
             $this->execute = $tmp_execute;
         }
         else {
@@ -195,7 +195,7 @@ class Model
     public function limit($limit_key)
     {
         if (is_array($limit_key)) {
-            $this->limit = implode($limit_key, ',');
+            $this->limit = implode(',', $limit_key);
         }
         else {
             $this->limit = $limit_key;
@@ -212,7 +212,7 @@ class Model
     public function group($group_key)
     {
         if (is_array($group_key)) {
-            $this->group = implode($group_key, ',');
+            $this->group = implode(',', $group_key);
         }
         else {
             $this->group = $group_key;
@@ -233,7 +233,7 @@ class Model
             foreach ($having_key as $key => $v) {
                 $tmp_array[] = "`$key` = '$v'";
             }
-            $this->having = implode($tmp_array, ' AND ');
+            $this->having = implode(' AND ', $tmp_array);
         }
         else {
             $this->having = $having_key;
@@ -266,7 +266,7 @@ class Model
             foreach ($order_key as $k => $v) {
                 $order_ary[] = "$k $v";
             }
-            $this->order = implode($order_ary, ',');
+            $this->order = implode(',', $order_ary);
         }
         else {
             $this->order = $order_key;
@@ -429,10 +429,10 @@ class Model
         foreach ($keys as $k => $v) {
             $keys[$k] = "`$v`";
         }
-        $key = implode($keys, ',');
+        $key = implode(',', $keys);
         $val = array();
         foreach ($datas as $data) {
-            $val[] = '(\'' . implode($data, '\',\'') . '\')';
+            $val[] = '(\'' . implode('\',\'', $data) . '\')';
         }
     
         $st = 'INSERT INTO ';
@@ -442,7 +442,7 @@ class Model
         else if ($type == 2) {
             $st = 'INSERT IGNORE ';
         }
-        $sql = $st . $this->table . ' (' . $key . ') values ' . implode($val, ',') . ';';
+        $sql = $st . $this->table . ' (' . $key . ') values ' . implode(',', $val) . ';';
         $rs = $this->db->prepare($sql);
         $res = $rs->execute();
     
@@ -463,7 +463,7 @@ class Model
         foreach ($cond_ary as $key => $v) {
             $tmp_array[] = "`$key`=:$key";
         }
-        $cond = implode($tmp_array, ' AND ');
+        $cond = implode(' AND ', $tmp_array);
 
         $sql = 'DELETE FROM ' . $this->table . ' WHERE ' . $cond . ';';
         $rs = $this->db->prepare($sql);
@@ -485,13 +485,13 @@ class Model
         foreach ($data as $key => $v) {
             $tmp_array[] = "`$key`=:$key";
         }
-        $set = implode($tmp_array, ',');
+        $set = implode(',', $tmp_array);
         
         $tmp_array = array();
         foreach ($where_key as $key => $v) {
             $tmp_array[] = "`$key`=" . $this->db->quote($v);
         }
-        $cond = implode($tmp_array, ' AND ');
+        $cond = implode(' AND ', $tmp_array);
     
         $sql = 'UPDATE ' . $this->table . ' SET ' . $set . ' WHERE ' . $cond . ';';
         $rs = $this->db->prepare($sql);

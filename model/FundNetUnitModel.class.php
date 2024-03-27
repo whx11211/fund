@@ -14,7 +14,7 @@ class FundNetUnitModel extends Model
      * 表名
      * string
      */
-    protected $table = 'fund_net_unit';
+    protected $table = 'fund_unit';
 
     public function __construct($code)
     {

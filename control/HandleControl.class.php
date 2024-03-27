@@ -5,7 +5,7 @@ class HandleControl extends Control
 
     public function setNetUnit()
     {
-        $fund_infos = Instance::get('FundInfo')->getAll();
+        $fund_infos = Instance::get('funds')->getAll();
 
         foreach($fund_infos as $fund_info) {
             $method = "set" . ucfirst($fund_info['company']) . "NetUnit";
@@ -203,6 +203,9 @@ class HandleControl extends Control
             }
             $date = date('Y-m-d', strtotime($val[0]));
             $v = $val[3] ?: $val[2];
+            if (empty($v)) {
+                continue;
+            }
             if ($date>$last_date) {
                 $tmp = [
                     'date' => $date,
@@ -222,8 +225,6 @@ class HandleControl extends Control
                         $tmp['trend'] = 1;
                     }
                 }
-
-                $datas[] = $tmp;
 
                 $last_unit_value = $v;
                 array_push($before_days, $v);
