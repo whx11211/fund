@@ -27,7 +27,7 @@ class DataBase extends PDO
      */
     public function __construct($type, $name, $ip, $port, $user, $pwd, $option)
     {
-        $dsn = $type . ":host=" . $ip . ";dbport=" . $port . ";dbname=" . $name;
+        $dsn = $type . ":host=" . $ip . ";port=" . $port . ";dbname=" . $name;
         parent::__construct($dsn, $user, $pwd, $option);
         $this->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_WARNING);
     }
